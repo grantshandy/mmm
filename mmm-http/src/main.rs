@@ -7,11 +7,9 @@ use actix_web::{
 use mmm_core::Switcher;
 use std::sync::RwLock;
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
-
 
 lazy_static! {
-    static ref INDEX: String = format!("<html>\n<head><style type=\"text/css\">\n{}</style>\n</head>\n<body>\n{}\n<script type=\"module\">\n{}\n</script>\n</body>\n</html>", include_str!("style.css"), include_str!("index.html"), include_str!("index.js"));
+    static ref INDEX: String = format!("<html>\n<head>\n<style type=\"text/css\">\n{}</style>\n</head>\n<body>\n{}\n<script type=\"module\">\n{}\n</script>\n</body>\n</html>", include_str!("style.css"), include_str!("index.html"), include_str!("index.js"));
 }
 
 pub static SWITCHER: Lazy<RwLock<Switcher>> =
@@ -48,7 +46,7 @@ async fn on() -> HttpResponse {
             .body("{\"status\":\"0\",\"message\":\"working!\"}"),
         Err((error, code)) => HttpResponse::Ok()
             .encoding(ContentEncoding::Gzip)
-            .body(json_error(error, code)),
+            .body(format!("{{\"status\":\"{}\",\"message\":\"{}\"}}", code, error)),
     }
 }
 
@@ -69,21 +67,15 @@ async fn data() -> HttpResponse {
     let mut output = String::new();
 
     for (date, state) in mmm_core::get_data() {
-        output.push_str(&format!("{},{}\n", date, state))
+        let state = match state {
+            true => "on",
+            false => "off",
+        };
+
+        output.push_str(&format!("{},{}\n", date, state));
     }
 
     HttpResponse::Ok()
         .encoding(ContentEncoding::Gzip)
         .body(output)
-}
-
-fn json_error(error: String, code: usize) -> String {
-    let mut results: HashMap<String, String> = HashMap::new();
-
-    results.insert("status".to_string(), code.to_string());
-    results.insert("message".to_string(), error.to_string());
-
-    let json = serde_json::to_string(&results).unwrap();
-
-    return json;
 }

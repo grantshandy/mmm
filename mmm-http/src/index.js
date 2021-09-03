@@ -4,19 +4,20 @@ let csvArray = makeArrayChronological(CSVToArray(csvText));
 console.log(csvArray);
 
 let csvHTML = makeTableHTML(csvArray);
-console.log(csvHTML);
-
 let docCsvDiv = document.getElementById("csvData");
 docCsvDiv.innerHTML = csvHTML;
 
-function toggle() {
-    console.log("im being toggled!");
-}
+function makeArrayChronological(oldArray) {
+    let dateArray = new Array();
 
-function makeArrayChronological(array) {
+    for (var i=0; i < (oldArray.length - 1); i++) {
+        let date = new Date(oldArray[i][0]);
+        let state = oldArray[i][1];
 
+        dateArray.push([date, state]);
+    }
 
-    return array;
+    return sortedArray;
 }
 
 // can be overriden in the second argument.
