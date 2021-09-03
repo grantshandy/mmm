@@ -25,7 +25,7 @@ impl Switcher {
             false => {
                 println!("turning on...");
                 self.state = true;
-                self.config.write_insert(Utc::now().to_string(), true.to_string()).unwrap();
+                self.config.write_insert(Utc::now().to_rfc3339().to_string(), true.to_string()).unwrap();
             }
         }
 
@@ -40,7 +40,7 @@ impl Switcher {
             true => {
                 println!("turning off...");
                 self.state = false;
-                self.config.write_insert(Utc::now().to_string(), false.to_string()).unwrap();
+                self.config.write_insert(Utc::now().to_rfc3339().to_string(), false.to_string()).unwrap();
             }
         }
 

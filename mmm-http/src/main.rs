@@ -9,8 +9,9 @@ use std::sync::RwLock;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
+
 lazy_static! {
-    static ref INDEX: String = format!("<html>\n{}\n</html>", include_str!("index.html"));
+    static ref INDEX: String = format!("<html>\n<head><style type=\"text/css\">\n{}</style>\n</head>\n<body>\n{}\n<script type=\"module\">\n{}\n</script>\n</body>\n</html>", include_str!("style.css"), include_str!("index.html"), include_str!("index.js"));
 }
 
 pub static SWITCHER: Lazy<RwLock<Switcher>> =
