@@ -14,10 +14,12 @@ function makeArrayChronological(oldArray) {
         let date = new Date(oldArray[i][0]);
         let state = oldArray[i][1];
 
-        dateArray.push([date, state]);
+        dateArray.push([ date, state ]);
     }
 
-    return sortedArray;
+    dateArray = dateArray.sort((a, b) => a[0] - b[0]);
+
+    return dateArray;
 }
 
 // can be overriden in the second argument.
@@ -108,9 +110,14 @@ function makeTableHTML(myArray) {
     var result = "<table border=1>";
     for(var i=0; i<myArray.length; i++) {
         result += "<tr>";
-        for(var j=0; j<myArray[i].length; j++){
-            result += "<td>"+myArray[i][j]+"</td>";
-        }
+
+        // for(var j=0; j<myArray[i].length; j++){
+        //     result += "<td>"+myArray[i][j]+"</td>";
+        // }
+
+        result += "<td>"+myArray[i][0]+"</td>";
+        result += "<td>"+myArray[i][1]+"</td>";
+
         result += "</tr>";
     }
     result += "</table>";
