@@ -1,11 +1,51 @@
-let response = await fetch("/data.csv");
-let csvText = await response.text();
-let csvArray = makeArrayChronological(CSVToArray(csvText));
-console.log(csvArray);
+showState();
+updateHistory();
 
-let csvHTML = makeTableHTML(csvArray);
-let docCsvDiv = document.getElementById("csvData");
-docCsvDiv.innerHTML = csvHTML;
+document.getElementById('toggle').onclick = async function() {
+    toggle();
+}
+
+document.getElementById('clear').onclick = async function() {
+    var csvResponse = await fetch("/data.csv");
+    let csvText = await response.text();
+    let csvArray = makeArrayChronological(CSVToArray(csvText));
+    let thing = csvArray.lastIndexOf();
+    console.log(thing);
+}
+
+async function toggle() {
+    let response = await fetch("/state");
+    let state = await response.text();
+
+    if (state == "on") {
+        let response = await fetch("/off");
+        showState();
+        updateHistory();
+
+    } else if (state == "off") {
+        let response = await fetch("/on");
+        showState();
+        updateHistory();
+    }
+}
+
+async function showState() {
+    let response = await fetch("/state");
+    let state = await response.text();
+
+    let docState = document.getElementById("state");
+    docState.innerHTML = "Sprinkler State: " + state;
+}
+
+async function updateHistory() {
+    var response = await fetch("/data.csv");
+    let csvText = await response.text();
+    let csvArray = makeArrayChronological(CSVToArray(csvText));
+    
+    let csvHTML = makeTableHTML(csvArray);
+    let docCsvDiv = document.getElementById("csvData");
+    docCsvDiv.innerHTML = csvHTML;    
+}
 
 function makeArrayChronological(oldArray) {
     let dateArray = new Array();
@@ -18,8 +58,17 @@ function makeArrayChronological(oldArray) {
     }
 
     dateArray = dateArray.sort((a, b) => a[0] - b[0]);
+    
+    let formattedArray = new Array();
 
-    return dateArray;
+    for (var i=0; i < (dateArray.length); i++) {
+        let date = new Date(dateArray[i][0]).toUTCString();
+        let state = oldArray[i][1];
+
+        formattedArray.push([ date, state ]);
+    }
+
+    return formattedArray;
 }
 
 // can be overriden in the second argument.

@@ -24,6 +24,8 @@ async fn main() -> std::io::Result<()> {
             .service(on)
             .service(off)
             .service(data)
+            .service(sprinkler_state)
+            .service(clear)
     })
     .bind("127.0.0.1:8080")?
     .disable_signals()
@@ -78,4 +80,28 @@ async fn data() -> HttpResponse {
     HttpResponse::Ok()
         .encoding(ContentEncoding::Gzip)
         .body(output)
+}
+
+#[get("/state")]
+async fn sprinkler_state() -> HttpResponse {
+    let state = match SWITCHER.read().unwrap().state {
+        true => "on",
+        false => "off",
+    };
+
+    HttpResponse::Ok()
+        .encoding(ContentEncoding::Gzip)
+        .body(state)
+}
+
+#[get("/clear")]
+async fn clear() -> HttpResponse {
+    match SWITCHER.write().unwrap().config.write_clear() {
+        Ok(_) => HttpResponse::Ok()
+            .encoding(ContentEncoding::Gzip)
+            .body("{\"status\":\"0\",\"message\":\"working!\"}"),
+        Err(error) => HttpResponse::Ok()
+            .encoding(ContentEncoding::Gzip)
+            .body(format!("{{\"status\":\"1\",\"message\":\"{}\"}}", error.to_string())),
+    }
 }
