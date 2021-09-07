@@ -1,0 +1,48 @@
+body {
+    background-color: #131516;
+    color: #d8d4cf;
+}
+
+body::selection {
+    background-color: #004daa;
+    color: #e8e6e3;
+}
+
+html, body, input, textarea, select, button {
+    background-color: #181a1b;
+    border-color: #736b5e;
+    color: #d8d4cf;
+}
+
+::-webkit-scrollbar {
+    background-color: #202324;
+    color: #aba499;
+}
+
+::-webkit-scrollbar-corner {
+    background-color: #181a1b;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #454a4d;
+}
+
+.doc {
+    margin: 0 auto;
+    text-align: center;
+    width: 50vw;
+}
+
+#dataTable {
+    margin-left: auto;
+    margin-right: auto;
+    scroll-behavior: smooth;
+}
+
+.divScroll {
+    overflow-y: scroll;
+    height: 500px;
+    width: 300px;
+    border: 5px;
+    border-color: #202324;
+}
