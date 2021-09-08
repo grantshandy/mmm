@@ -89,7 +89,7 @@ function makeTableHTML(myArray) {
     var result = "<table border=1>";
 
     for(var i=0; i<myArray.length; i++) {
-        if (myArray[i][1] == "On") {
+        if (myArray[i][2] == "On") {
             result += "<tr style=\"background-color: green\">";
 
             result += "<td>"+myArray[i][0]+"</td>";
@@ -97,7 +97,7 @@ function makeTableHTML(myArray) {
             result += "<td>"+myArray[i][2]+"</td>";
     
             result += "</tr>";
-        } else if (myArray[i][1] == "Off") {
+        } else if (myArray[i][2] == "Off") {
             result += "<tr style=\"background-color: #FE4365\">";
 
             result += "<td>"+myArray[i][0]+"</td>";

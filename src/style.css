@@ -1,6 +1,7 @@
 body {
     background-color: #131516;
     color: #d8d4cf;
+    font-family: "Vulf Sans"
 }
 
 body::selection {
@@ -42,7 +43,14 @@ html, body, input, textarea, select, button {
 .divScroll {
     overflow-y: scroll;
     height: 500px;
-    width: 436px;
+    width: 400px;
     border: 5px;
     border-color: #202324;
+}
+
+@font-face {
+    font-family: "Vulf Sans";
+    font-style: normal;
+    font-weight: 400;
+    src: url("Vulf_Sans-Regular.woff2");
 }

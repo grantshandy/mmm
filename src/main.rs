@@ -1,6 +1,9 @@
 #[macro_use]
 extern crate lazy_static;
 
+use std::path::PathBuf;
+use std::str::FromStr;
+
 use actix_web::{App, HttpResponse, HttpServer, body::Body, dev::BodyEncoding, get, http::ContentEncoding, web::Bytes};
 use chrono::prelude::*;
 
@@ -10,6 +13,11 @@ static mut STATE: bool = false;
 
 lazy_static! {
     static ref INDEX: String = format!("<html>\n<head>\n<title>Sprinkler Control</title>\n<link rel=\"icon\" href=\"favicon.ico\"/>\n<style type=\"text/css\">\n{}\n</style>\n</head>\n<body>\n{}\n<script type=\"module\">\n{}\n</script>\n</body>\n</html>", include_str!("style.css"), include_str!("index.html"), include_str!("index.js"));
+    static ref CSV_PATH: PathBuf = {
+        let mut dir = dirs::config_dir().unwrap();
+        dir.push("mmm.csv");
+        dir
+    };
 }
 
 #[actix_web::main]
@@ -29,6 +37,8 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .service(index)
             .service(favicon)
+            .service(gallons)
+            .service(vulf_sans_regular)
             .service(weather)
             .service(off)
             .service(on)
@@ -52,8 +62,15 @@ async fn index() -> HttpResponse {
 #[get("/favicon.ico")]
 async fn favicon() -> HttpResponse {
     HttpResponse::Ok()
-    .encoding(ContentEncoding::Gzip)
-    .body(Body::Bytes(Bytes::from(include_bytes!("favicon.ico").to_vec())))
+        .encoding(ContentEncoding::Gzip)
+        .body(Body::Bytes(Bytes::from(include_bytes!("favicon.ico").to_vec())))
+}
+
+#[get("/Vulf_Sans-Regular.woff2")]
+async fn vulf_sans_regular() -> HttpResponse {
+    HttpResponse::Ok()
+        .encoding(ContentEncoding::Gzip)
+        .body(Body::Bytes(Bytes::from(include_bytes!("fonts/Vulf_Sans-Regular.woff2").to_vec())))
 }
 
 #[get("/weather")]
@@ -62,7 +79,57 @@ async fn weather() -> HttpResponse {
 
     HttpResponse::Ok()
         .encoding(ContentEncoding::Gzip)
-        .body(format!("Temperature: {}, {}.", weather.temperature, weather.description))
+        .body(format!("Temperature: {}, {} °C.", weather.temperature, weather.description))
+}
+
+#[get("/gallons")]
+async fn gallons() -> HttpResponse {
+    let mut gallon_vec: Vec<(DateTime<Utc>, bool)> = Vec::new();
+
+    if !CSV_PATH.exists() {
+        return HttpResponse::Ok()
+            .encoding(ContentEncoding::Gzip)
+            .body("{{\"gallons\":\"0\"}}");
+    }
+
+    let csv_str = fstream::read_text(CSV_PATH.clone()).unwrap();
+
+    for x in csv_str.lines().skip(1) {
+        let time = x.split(',').nth(0).unwrap();
+
+        let this_state: bool = match x.split(',').nth(2).unwrap() {
+            "On" => true,
+            "Off" => false,
+            &_ => false,
+        };
+
+        let time = match DateTime::from_str(time) {
+            Ok(other_data) => other_data,
+            Err(error) => panic!("error: {}, time: {}", error, time),
+        };
+
+        gallon_vec.push((time, this_state));
+    }
+
+    let mut total_gallons: f64 = 0.0;
+
+    let current_state: bool;
+
+    unsafe {
+        current_state = STATE;
+    }
+
+    for (time, this_state) in gallon_vec {
+        unsafe {
+            if this_state = STATE {
+                
+            }
+        }
+    }
+
+    HttpResponse::Ok()
+        .encoding(ContentEncoding::Gzip)
+        .body(format!("Temperature"))
 }
 
 #[get("/on")]
@@ -144,10 +211,7 @@ async fn state() -> HttpResponse {
 
 #[get("/clear")]
 async fn clear() -> HttpResponse {
-    let mut dir = dirs::config_dir().unwrap();
-    dir.push("mmm.csv");
-
-    std::fs::remove_file(dir).unwrap();
+    std::fs::remove_file(CSV_PATH.clone()).unwrap();
     
     HttpResponse::Ok()
         .encoding(ContentEncoding::Gzip)
@@ -156,21 +220,18 @@ async fn clear() -> HttpResponse {
 
 #[get("/data.csv")]
 async fn data() -> HttpResponse {
-    let mut dir = dirs::config_dir().unwrap();
-    dir.push("mmm.csv");
-
-    if dir.exists() {
-        let data = fstream::read_text(dir).unwrap();
+    if CSV_PATH.exists() {
+        let data = fstream::read_text(CSV_PATH.clone()).unwrap();
 
         return HttpResponse::Ok()
             .encoding(ContentEncoding::Gzip)
             .body(data);
     } else {
-        fstream::write_text(dir, "time,status,temperature", false);
+        fstream::write_text(CSV_PATH.clone(), "time,temperature,status", false);
 
         return HttpResponse::Ok()
             .encoding(ContentEncoding::Gzip)
-            .body("time,status,temperature"); 
+            .body("time,temperature,status"); 
     }
 }
 
@@ -182,14 +243,9 @@ async fn update_database() {
         };
 
         let now = Utc::now();
-
-        let mut dir = dirs::config_dir().unwrap();
-        dir.push("mmm.csv");
-
         let current_weather = tools::Weather::now().await;
+        let output = format!("\n{},{} °C,{}", now, current_weather.temperature, current_state);
 
-        let output = format!("\n{},{},{}", now, current_state, current_weather.temperature);
-
-        fstream::write_text(dir, output, false).unwrap();
+        fstream::write_text(CSV_PATH.clone(), output, false).unwrap();
     }
 }
