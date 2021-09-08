@@ -36,8 +36,8 @@ async function updateCsv() {
 
 async function setWeather() {
     var response = await fetch("/weather");
-    var weather = await response.json();
-    weatherText.innerHTML = "Temperature: " + weather.temperature + ", " + weather.description + ".";
+    var weather = await response.text();
+    weatherText.innerHTML = weather;
 }
 
 function CSVToArray(strData, strDelimiter ){
@@ -94,6 +94,7 @@ function makeTableHTML(myArray) {
 
             result += "<td>"+myArray[i][0]+"</td>";
             result += "<td>"+myArray[i][1]+"</td>";
+            result += "<td>"+myArray[i][2]+"</td>";
     
             result += "</tr>";
         } else if (myArray[i][1] == "Off") {
@@ -101,6 +102,7 @@ function makeTableHTML(myArray) {
 
             result += "<td>"+myArray[i][0]+"</td>";
             result += "<td>"+myArray[i][1]+"</td>";
+            result += "<td>"+myArray[i][2]+"</td>";
     
             result += "</tr>";
         } else {
@@ -108,7 +110,8 @@ function makeTableHTML(myArray) {
 
             result += "<td>"+myArray[i][0]+"</td>";
             result += "<td>"+myArray[i][1]+"</td>";
-    
+            result += "<td>"+myArray[i][2]+"</td>";
+
             result += "</tr>";
         }
     }

@@ -42,7 +42,7 @@ html, body, input, textarea, select, button {
 .divScroll {
     overflow-y: scroll;
     height: 500px;
-    width: 300px;
+    width: 436px;
     border: 5px;
     border-color: #202324;
 }

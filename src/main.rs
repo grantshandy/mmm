@@ -4,6 +4,8 @@ extern crate lazy_static;
 use actix_web::{App, HttpResponse, HttpServer, body::Body, dev::BodyEncoding, get, http::ContentEncoding, web::Bytes};
 use chrono::prelude::*;
 
+mod tools;
+
 static mut STATE: bool = false;
 
 lazy_static! {
@@ -16,7 +18,7 @@ async fn main() -> std::io::Result<()> {
     dir.push("mmm.csv");
 
     unsafe {
-        STATE = match fstream::read_text(dir).unwrap().lines().last().unwrap().split(',').last().unwrap() {
+        STATE = match fstream::read_text(dir).unwrap_or("Off".to_string()).lines().last().unwrap_or("Off").split(',').last().unwrap_or("Off") {
             "On" => true,
             "Off" => false,
             &_ => false,
@@ -56,14 +58,11 @@ async fn favicon() -> HttpResponse {
 
 #[get("/weather")]
 async fn weather() -> HttpResponse {
-    let resp = surf::get("https://goweather.herokuapp.com/weather/millcreek")
-        .recv_string()
-        .await
-        .unwrap();
+    let weather = tools::Weather::now().await;
 
     HttpResponse::Ok()
         .encoding(ContentEncoding::Gzip)
-        .body(resp)
+        .body(format!("Temperature: {}, {}.", weather.temperature, weather.description))
 }
 
 #[get("/on")]
@@ -74,7 +73,7 @@ async fn on() -> HttpResponse {
             false => {
                 println!("turning on");
                 STATE = true;
-                update_database();
+                update_database().await;
             }
         }
 
@@ -91,7 +90,7 @@ async fn off() -> HttpResponse {
             true => {
                 println!("turning off");
                 STATE = false;
-                update_database();
+                update_database().await;
             }
             false => (),
         }
@@ -109,12 +108,12 @@ async fn toggle() -> HttpResponse {
             true =>  {
                 println!("turning off");
                 STATE = false;
-                update_database();
+                update_database().await;
             },
             false =>  {
                 println!("turning on");
                 STATE = true;
-                update_database(); 
+                update_database().await; 
             },
         }
 
@@ -167,15 +166,15 @@ async fn data() -> HttpResponse {
             .encoding(ContentEncoding::Gzip)
             .body(data);
     } else {
-        fstream::write_text(dir, "time,status", false);
+        fstream::write_text(dir, "time,status,temperature", false);
 
         return HttpResponse::Ok()
             .encoding(ContentEncoding::Gzip)
-            .body("time,status"); 
+            .body("time,status,temperature"); 
     }
 }
 
-fn update_database() {
+async fn update_database() {
     unsafe {
         let current_state = match STATE {
             true => "On",
@@ -187,7 +186,9 @@ fn update_database() {
         let mut dir = dirs::config_dir().unwrap();
         dir.push("mmm.csv");
 
-        let output = format!("\n{},{}", now, current_state);
+        let current_weather = tools::Weather::now().await;
+
+        let output = format!("\n{},{},{}", now, current_state, current_weather.temperature);
 
         fstream::write_text(dir, output, false).unwrap();
     }
