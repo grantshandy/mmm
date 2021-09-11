@@ -2,12 +2,11 @@
 extern crate lazy_static;
 
 use std::path::PathBuf;
-use std::str::FromStr;
+
+mod tools;
 
 use actix_web::{App, HttpResponse, HttpServer, body::Body, dev::BodyEncoding, get, http::ContentEncoding, web::Bytes};
 use chrono::prelude::*;
-
-mod tools;
 
 static mut STATE: bool = false;
 
@@ -37,7 +36,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .service(index)
             .service(favicon)
-            .service(gallons)
+            // .service(gallons)
             .service(vulf_sans_regular)
             .service(weather)
             .service(off)
@@ -79,58 +78,58 @@ async fn weather() -> HttpResponse {
 
     HttpResponse::Ok()
         .encoding(ContentEncoding::Gzip)
-        .body(format!("Temperature: {}, {} °C.", weather.temperature, weather.description))
+        .body(format!("Temperature: {} °C, {}.", weather.temperature, weather.description))
 }
 
-#[get("/gallons")]
-async fn gallons() -> HttpResponse {
-    let mut gallon_vec: Vec<(DateTime<Utc>, bool)> = Vec::new();
+// #[get("/gallons")]
+// async fn gallons() -> HttpResponse {
+//     let mut gallon_vec: Vec<(DateTime<Utc>, bool)> = Vec::new();
 
-    if !CSV_PATH.exists() {
-        return HttpResponse::Ok()
-            .encoding(ContentEncoding::Gzip)
-            .body("{{\"gallons\":\"0\"}}");
-    }
+//     if !CSV_PATH.exists() {
+//         return HttpResponse::Ok()
+//             .encoding(ContentEncoding::Gzip)
+//             .body("{{\"gallons\":\"0\"}}");
+//     }
 
-    let csv_str = fstream::read_text(CSV_PATH.clone()).unwrap();
+//     let csv_str = fstream::read_text(CSV_PATH.clone()).unwrap();
 
-    for x in csv_str.lines().skip(1) {
-        let time = x.split(',').nth(0).unwrap();
+//     for x in csv_str.lines().skip(1) {
+//         let time = x.split(',').nth(0).unwrap();
 
-        let this_state: bool = match x.split(',').nth(2).unwrap() {
-            "On" => true,
-            "Off" => false,
-            &_ => false,
-        };
+//         let this_state: bool = match x.split(',').nth(2).unwrap() {
+//             "On" => true,
+//             "Off" => false,
+//             &_ => false,
+//         };
 
-        let time = match DateTime::from_str(time) {
-            Ok(other_data) => other_data,
-            Err(error) => panic!("error: {}, time: {}", error, time),
-        };
+//         let time = match DateTime::from_str(time) {
+//             Ok(other_data) => other_data,
+//             Err(error) => panic!("error: {}, time: {}", error, time),
+//         };
 
-        gallon_vec.push((time, this_state));
-    }
+//         gallon_vec.push((time, this_state));
+//     }
 
-    let mut total_gallons: f64 = 0.0;
+//     let mut total_gallons: f64 = 0.0;
 
-    let current_state: bool;
+//     let current_state: bool;
 
-    unsafe {
-        current_state = STATE;
-    }
+//     unsafe {
+//         current_state = STATE;
+//     }
 
-    for (time, this_state) in gallon_vec {
-        unsafe {
-            if this_state = STATE {
+//     for (time, this_state) in gallon_vec {
+//         unsafe {
+//             if this_state = STATE {
                 
-            }
-        }
-    }
+//             }
+//         }
+//     }
 
-    HttpResponse::Ok()
-        .encoding(ContentEncoding::Gzip)
-        .body(format!("Temperature"))
-}
+//     HttpResponse::Ok()
+//         .encoding(ContentEncoding::Gzip)
+//         .body(format!("Temperature"))
+// }
 
 #[get("/on")]
 async fn on() -> HttpResponse {
