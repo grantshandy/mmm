@@ -1,5 +1,6 @@
 const toggleButton = document.getElementById('toggle');
 const clearButton = document.getElementById('clear');
+const downloadButton = document.getElementById('download');
 const stateText = document.getElementById('state');
 const weatherText = document.getElementById('weather');
 const csvDiv = document.getElementById("csvData");
@@ -11,6 +12,16 @@ stateText.innerHTML = "State: " + state;
 
 updateCsv();
 setWeather();
+
+downloadButton.onclick = async function() {
+    const anchor = document.createElement('a');
+    anchor.href = "/data.csv";
+    anchor.download = "sprinkler.csv";
+
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+}
 
 clearButton.onclick = async function() {
     var response = await fetch('/clear');

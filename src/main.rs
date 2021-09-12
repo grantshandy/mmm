@@ -1,240 +1,145 @@
-#[macro_use]
-extern crate lazy_static;
+use std::{fs, io::Cursor, path::PathBuf};
 
-use std::path::PathBuf;
-
-mod tools;
-
-use actix_web::{App, HttpResponse, HttpServer, body::Body, dev::BodyEncoding, get, http::ContentEncoding, web::Bytes};
 use chrono::prelude::*;
+use rppal::gpio::Gpio;
+use serde_json::Value;
+use tiny_http::{Response, Server};
 
 static mut STATE: bool = false;
+const PIN: u8 = 11;
 
-lazy_static! {
-    static ref INDEX: String = format!("<html>\n<head>\n<title>Sprinkler Control</title>\n<link rel=\"icon\" href=\"favicon.ico\"/>\n<style type=\"text/css\">\n{}\n</style>\n</head>\n<body>\n{}\n<script type=\"module\">\n{}\n</script>\n</body>\n</html>", include_str!("style.css"), include_str!("index.html"), include_str!("index.js"));
-    static ref CSV_PATH: PathBuf = {
-        let mut dir = dirs::config_dir().unwrap();
-        dir.push("mmm.csv");
-        dir
-    };
-}
+fn main() {
+    let server = Server::http("0.0.0.0:8080").unwrap();
+    println!("started server");
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    let mut dir = dirs::config_dir().unwrap();
-    dir.push("mmm.csv");
+    let mut path = PathBuf::new();
+    path.push("/home/grant/");
+    path.push("mmm.csv");
 
     unsafe {
-        STATE = match fstream::read_text(dir).unwrap_or("Off".to_string()).lines().last().unwrap_or("Off").split(',').last().unwrap_or("Off") {
+        STATE = match fstream::read_text(&path)
+            .unwrap_or("Off".to_string())
+            .lines()
+            .last()
+            .unwrap_or("Off")
+            .split(',')
+            .last()
+            .unwrap_or("Off")
+        {
             "On" => true,
             "Off" => false,
             &_ => false,
         };
     }
 
-    HttpServer::new(||
-        App::new()
-            .service(index)
-            .service(favicon)
-            // .service(gallons)
-            .service(vulf_sans_regular)
-            .service(weather)
-            .service(off)
-            .service(on)
-            .service(state)
-            .service(data)
-            .service(toggle)
-            .service(clear)
+    for request in server.incoming_requests() {
+        match request.url() {
+            "/toggle" => request.respond(toggle(&path)).unwrap(),
+            "/state" => request.respond(state()).unwrap(),
+            "/clear" => request.respond(clear(&path)).unwrap(),
+            "/weather" => request.respond(weather()).unwrap(),
+            "/data.csv" => request.respond(data(&path)).unwrap(),
+            "/favicon.ico" => request.respond(favicon()).unwrap(),
+            "/Vulf_Sans-Regular.woff2" => request.respond(font()).unwrap(),
+            &_ => request.respond(index()).unwrap(),
+        }
+    }
+}
+
+fn index() -> Response<Cursor<Vec<u8>>> {
+    Response::from_string(&format!("<html>\n<head>\n<title>Sprinkler Control</title>\n<link rel=\"icon\" href=\"favicon.ico\"/>\n<style type=\"text/css\">\n{}\n</style>\n</head>\n<body>\n{}\n<script type=\"module\">\n{}\n</script>\n</body>\n</html>", include_str!("style.css"), include_str!("index.html"), include_str!("index.js")))
+    .with_header(
+        "Content-type: text/html"
+            .parse::<tiny_http::Header>()
+            .unwrap(),
     )
-        .bind("127.0.0.1:8080")?
-        .run()
-        .await
 }
 
-#[get("/")]
-async fn index() -> HttpResponse {
-    HttpResponse::Ok()
-        .encoding(ContentEncoding::Gzip)
-        .body(INDEX.to_string())
+fn weather() -> Response<Cursor<Vec<u8>>> {
+    let weather = Weather::now();
+
+    Response::from_string(&format!(
+        "Temperature: {} ℃, {}.",
+        weather.temperature, weather.description
+    ))
+    .with_header(
+        "Content-type: text/html"
+            .parse::<tiny_http::Header>()
+            .unwrap(),
+    )
 }
 
-#[get("/favicon.ico")]
-async fn favicon() -> HttpResponse {
-    HttpResponse::Ok()
-        .encoding(ContentEncoding::Gzip)
-        .body(Body::Bytes(Bytes::from(include_bytes!("favicon.ico").to_vec())))
+fn favicon() -> Response<Cursor<Vec<u8>>> {
+    Response::from_data(include_bytes!("favicon.ico").to_vec()).with_header(
+        "Content-type: image/ico"
+            .parse::<tiny_http::Header>()
+            .unwrap(),
+    )
 }
 
-#[get("/Vulf_Sans-Regular.woff2")]
-async fn vulf_sans_regular() -> HttpResponse {
-    HttpResponse::Ok()
-        .encoding(ContentEncoding::Gzip)
-        .body(Body::Bytes(Bytes::from(include_bytes!("fonts/Vulf_Sans-Regular.woff2").to_vec())))
+fn font() -> Response<Cursor<Vec<u8>>> {
+    Response::from_data(include_bytes!("Vulf_Sans-Regular.woff2").to_vec()).with_header(
+        "Content-type: image/ico"
+            .parse::<tiny_http::Header>()
+            .unwrap(),
+    )
 }
 
-#[get("/weather")]
-async fn weather() -> HttpResponse {
-    let weather = tools::Weather::now().await;
+fn data(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
+    if path.exists() {
+        let data = fstream::read_text(path).unwrap();
 
-    HttpResponse::Ok()
-        .encoding(ContentEncoding::Gzip)
-        .body(format!("Temperature: {} °C, {}.", weather.temperature, weather.description))
-}
+        return Response::from_string(data).with_header(
+            "Content-type: text/csv"
+                .parse::<tiny_http::Header>()
+                .unwrap(),
+        );
+    } else {
+        fstream::write_text(path, "time,temperature,status", false);
 
-// #[get("/gallons")]
-// async fn gallons() -> HttpResponse {
-//     let mut gallon_vec: Vec<(DateTime<Utc>, bool)> = Vec::new();
-
-//     if !CSV_PATH.exists() {
-//         return HttpResponse::Ok()
-//             .encoding(ContentEncoding::Gzip)
-//             .body("{{\"gallons\":\"0\"}}");
-//     }
-
-//     let csv_str = fstream::read_text(CSV_PATH.clone()).unwrap();
-
-//     for x in csv_str.lines().skip(1) {
-//         let time = x.split(',').nth(0).unwrap();
-
-//         let this_state: bool = match x.split(',').nth(2).unwrap() {
-//             "On" => true,
-//             "Off" => false,
-//             &_ => false,
-//         };
-
-//         let time = match DateTime::from_str(time) {
-//             Ok(other_data) => other_data,
-//             Err(error) => panic!("error: {}, time: {}", error, time),
-//         };
-
-//         gallon_vec.push((time, this_state));
-//     }
-
-//     let mut total_gallons: f64 = 0.0;
-
-//     let current_state: bool;
-
-//     unsafe {
-//         current_state = STATE;
-//     }
-
-//     for (time, this_state) in gallon_vec {
-//         unsafe {
-//             if this_state = STATE {
-                
-//             }
-//         }
-//     }
-
-//     HttpResponse::Ok()
-//         .encoding(ContentEncoding::Gzip)
-//         .body(format!("Temperature"))
-// }
-
-#[get("/on")]
-async fn on() -> HttpResponse {
-    unsafe {
-        match STATE {
-            true => (),
-            false => {
-                println!("turning on");
-                STATE = true;
-                update_database().await;
-            }
-        }
-
-        HttpResponse::Ok()
-            .encoding(ContentEncoding::Gzip)
-            .body(format!("{{\"state\":\"On\"}}"))
+        return Response::from_string("time,temperature,status").with_header(
+            "Content-type: text/csv"
+                .parse::<tiny_http::Header>()
+                .unwrap(),
+        );
     }
 }
 
-#[get("/off")]
-async fn off() -> HttpResponse {
-    unsafe {
-        match STATE {
-            true => {
-                println!("turning off");
-                STATE = false;
-                update_database().await;
-            }
-            false => (),
-        }
-
-        HttpResponse::Ok()
-            .encoding(ContentEncoding::Gzip)
-            .body(format!("{{\"state\":\"Off\"}}"))
-    }
-}
-
-#[get("/toggle")]
-async fn toggle() -> HttpResponse {
-    unsafe {
-        match STATE {
-            true =>  {
-                println!("turning off");
-                STATE = false;
-                update_database().await;
-            },
-            false =>  {
-                println!("turning on");
-                STATE = true;
-                update_database().await; 
-            },
-        }
-
-        let current_state = match STATE {
-            true => "On",
-            false => "Off",
-        };
-
-        HttpResponse::Ok()
-            .encoding(ContentEncoding::Gzip)
-            .body(format!("{{\"state\":\"{}\"}}", current_state))
-    }
-}
-
-#[get("/state")]
-async fn state() -> HttpResponse {
+fn state() -> Response<Cursor<Vec<u8>>> {
     unsafe {
         let state = match STATE {
             true => "On",
             false => "Off",
         };
 
-        HttpResponse::Ok()
-            .encoding(ContentEncoding::Gzip)
-            .body(format!("{{\"state\":\"{}\"}}", state)) 
+        return Response::from_string(format!("{{\"state\":\"{}\"}}", state)).with_header(
+            "Content-type: text/json"
+                .parse::<tiny_http::Header>()
+                .unwrap(),
+        );
     }
 }
 
-#[get("/clear")]
-async fn clear() -> HttpResponse {
-    std::fs::remove_file(CSV_PATH.clone()).unwrap();
-    
-    HttpResponse::Ok()
-        .encoding(ContentEncoding::Gzip)
-        .body(format!("{{\"status\":\"0\"}}"))
+fn clear(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
+    fs::remove_file(path).unwrap();
+
+    return Response::from_string(format!("{{\"status\":\"0\"}}")).with_header(
+        "Content-type: text/json"
+            .parse::<tiny_http::Header>()
+            .unwrap(),
+    );
 }
 
-#[get("/data.csv")]
-async fn data() -> HttpResponse {
-    if CSV_PATH.exists() {
-        let data = fstream::read_text(CSV_PATH.clone()).unwrap();
-
-        return HttpResponse::Ok()
-            .encoding(ContentEncoding::Gzip)
-            .body(data);
-    } else {
-        fstream::write_text(CSV_PATH.clone(), "time,temperature,status", false);
-
-        return HttpResponse::Ok()
-            .encoding(ContentEncoding::Gzip)
-            .body("time,temperature,status"); 
+fn toggle(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
+    unsafe {
+        match STATE {
+            true => turn_pins_off(path),
+            false => turn_pins_on(path),
+        }
     }
 }
 
-async fn update_database() {
+fn update_database(path: &PathBuf) {
     unsafe {
         let current_state = match STATE {
             true => "On",
@@ -242,9 +147,172 @@ async fn update_database() {
         };
 
         let now = Utc::now();
-        let current_weather = tools::Weather::now().await;
-        let output = format!("\n{},{} °C,{}", now, current_weather.temperature, current_state);
+        let current_weather = Weather::now();
+        let output = format!(
+            "\n{},{} ℃,{}",
+            now, current_weather.temperature, current_state
+        );
 
-        fstream::write_text(CSV_PATH.clone(), output, false).unwrap();
+        fstream::write_text(path, output, false).unwrap();
+    }
+}
+
+unsafe fn turn_pins_off(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
+    match Gpio::new() {
+        Ok(gpio) => {
+            let mut pin = match gpio.get(PIN) {
+                Ok(x) => x,
+                Err(error) => {
+                    let current_state = match STATE {
+                        true => "On",
+                        false => "Off",
+                    };
+
+                    eprintln!("couldn't get the pin!! msg: {}", error);
+                    return Response::from_string(&format!(
+                        "{{\"state\":\"{}\",\"error\":\"{}\"}}",
+                        current_state, error
+                    ))
+                    .with_header(
+                        "Content-type: text/json"
+                            .parse::<tiny_http::Header>()
+                            .unwrap(),
+                    );
+                }
+            }
+            .into_output();
+
+            pin.set_low();
+            println!("turned off");
+            STATE = false;
+            update_database(path);
+
+            let current_state = match STATE {
+                true => "On",
+                false => "Off",
+            };
+
+            return Response::from_string(&format!("{{\"state\":\"{}\"}}", current_state))
+                .with_header(
+                    "Content-type: text/json"
+                        .parse::<tiny_http::Header>()
+                        .unwrap(),
+                );
+        }
+        Err(error) => {
+            let current_state = match STATE {
+                true => "On",
+                false => "Off",
+            };
+
+            return Response::from_string(&format!(
+                "{{\"state\":\"{}\",\"error\":\"{}\"}}",
+                current_state, error
+            ))
+            .with_header(
+                "Content-type: text/json"
+                    .parse::<tiny_http::Header>()
+                    .unwrap(),
+            );
+        }
+    };
+}
+
+unsafe fn turn_pins_on(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
+    match Gpio::new() {
+        Ok(gpio) => {
+            let mut pin = match gpio.get(PIN) {
+                Ok(x) => x,
+                Err(error) => {
+                    let current_state = match STATE {
+                        true => "On",
+                        false => "Off",
+                    };
+
+                    eprintln!("couldn't get the pin!! msg: {}", error);
+                    return Response::from_string(&format!(
+                        "{{\"state\":\"{}\",\"error\":\"{}\"}}",
+                        current_state, error
+                    ))
+                    .with_header(
+                        "Content-type: text/json"
+                            .parse::<tiny_http::Header>()
+                            .unwrap(),
+                    );
+                }
+            }
+            .into_output();
+
+            pin.set_high();
+            println!("turned on");
+            STATE = true;
+            update_database(path);
+
+            let current_state = match STATE {
+                true => "On",
+                false => "Off",
+            };
+
+            return Response::from_string(&format!("{{\"state\":\"{}\"}}", current_state))
+                .with_header(
+                    "Content-type: text/json"
+                        .parse::<tiny_http::Header>()
+                        .unwrap(),
+                );
+        }
+        Err(error) => {
+            let current_state = match STATE {
+                true => "On",
+                false => "Off",
+            };
+
+            return Response::from_string(&format!(
+                "{{\"state\":\"{}\",\"error\":\"{}\"}}",
+                current_state, error
+            ))
+            .with_header(
+                "Content-type: text/json"
+                    .parse::<tiny_http::Header>()
+                    .unwrap(),
+            );
+        }
+    };
+}
+
+pub struct Weather {
+    pub temperature: f64,
+    pub description: String,
+}
+
+impl Weather {
+    pub fn now() -> Self {
+        let resp = ureq::get(&format!(
+            "http://api.weatherapi.com/v1/current.json?key={}&q=millcreek&aqi=no",
+            include_str!("weather_key")
+        ))
+        .call()
+        .unwrap()
+        .into_string()
+        .unwrap();
+
+        let resp: Value = serde_json::from_str(&resp).unwrap();
+
+        let description = match &resp["current"]["condition"]["text"] {
+            Value::String(desc) => desc.clone(),
+            _ => panic!("no text!"),
+        };
+
+        let temperature = match &resp["current"]["temp_c"] {
+            Value::Number(desc) => match desc.as_f64() {
+                Some(data) => data,
+                None => panic!("not f64!!"),
+            },
+            _ => panic!("no temp!"),
+        };
+
+        return Self {
+            temperature,
+            description,
+        };
     }
 }
