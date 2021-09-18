@@ -1,9 +1,11 @@
 const toggleButton = document.getElementById("toggle");
 const clearButton = document.getElementById("clear");
 const downloadButton = document.getElementById("download");
+const refreshButton = document.getElementById("refresh");
 const stateText = document.getElementById("state");
 const weatherText = document.getElementById("weather");
 const csvDiv = document.getElementById("csvData");
+const graphImg = document.getElementById("graph");
 
 var response = await fetch("/state");
 var json = await response.json();
@@ -12,8 +14,9 @@ stateText.innerHTML = "State: " + state;
 
 updateCsv();
 setWeather();
+updateGraph();
 
-downloadButton.onclick = async function () {
+downloadButton.onclick = async function() {
     const anchor = document.createElement("a");
     anchor.href = "/data.csv";
     anchor.download = "sprinkler.csv";
@@ -23,13 +26,13 @@ downloadButton.onclick = async function () {
     document.body.removeChild(anchor);
 };
 
-clearButton.onclick = async function () {
+clearButton.onclick = async function() {
     var response = await fetch("/clear");
 
     updateCsv();
 };
 
-toggleButton.onclick = async function () {
+toggleButton.onclick = async function() {
     var response = await fetch("/toggle");
     var json = await response.json();
 
@@ -41,7 +44,20 @@ toggleButton.onclick = async function () {
     stateText.innerHTML = "State: " + state;
 
     updateCsv();
+    updateGraph();
 };
+
+refreshButton.onclick = async function() {
+    updateCsv();
+    setWeather();
+    updateGraph();
+}
+
+async function updateGraph() {
+    setTimeout(function () {
+        graphImg.src = "/graph.svg"
+    }, 1000);
+}
 
 async function updateCsv() {
     var response = await fetch("/data.csv");
@@ -86,18 +102,22 @@ function CSVToArray(strData, strDelimiter) {
 }
 
 function makeTableHTML(myArray) {
-    var result = "<table border=1>";
+    var result = "<table border=1 style=\"width: 784px\">";
 
     for (var i = 0; i < myArray.length; i++) {
         if (myArray[i][2] == "On") {
+            let date = new Date(myArray[i][0]);
+
             result += '<tr style="background-color: green">';
-            result += "<td>" + myArray[i][0] + "</td>";
+            result += "<td>" + date + "</td>";
             result += "<td>" + myArray[i][1] + "</td>";
             result += "<td>" + myArray[i][2] + "</td>";
             result += "</tr>";
         } else if (myArray[i][2] == "Off") {
+            let date = new Date(myArray[i][0]);
+
             result += '<tr style="background-color: #FE4365">';
-            result += "<td>" + myArray[i][0] + "</td>";
+            result += "<td>" + date + "</td>";
             result += "<td>" + myArray[i][1] + "</td>";
             result += "<td>" + myArray[i][2] + "</td>";
             result += "</tr>";

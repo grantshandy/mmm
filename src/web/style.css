@@ -16,7 +16,7 @@ html, body, input, textarea, select, button {
 }
 
 ::-webkit-scrollbar {
-    background-color: #202324;
+    /* background-color: #202324; */
     color: #aba499;
 }
 
@@ -43,7 +43,7 @@ html, body, input, textarea, select, button {
 .divScroll {
     overflow-y: scroll;
     height: 500px;
-    width: 400px;
+    width: 800px;
     border: 5px;
     border-color: #202324;
 }

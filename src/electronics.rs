@@ -1,10 +1,8 @@
+#![allow(unused_imports)]
 use std::path::PathBuf;
 
 use crate::update_database;
-use crate::STATE;
-
-#[cfg(target_arch = "arm")]
-const PIN: u8 = 11;
+use crate::{STATE, PIN};
 
 #[cfg(target_arch = "arm")]
 use rppal::gpio::Gpio;
@@ -48,7 +46,7 @@ pub unsafe fn turn_pins_off(path: &PathBuf) -> Result<bool, (bool, String)> {
     STATE = false;
     update_database(path);
 
-    return OK(STATE);
+    return Ok(STATE);
 }
 
 #[cfg(target_arch = "arm")]
