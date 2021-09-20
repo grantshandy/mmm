@@ -6,6 +6,7 @@ use std::path::PathBuf;
 mod electronics;
 mod weather;
 mod web;
+mod graph;
 
 use chrono::prelude::*;
 use clap::Arg;
@@ -42,7 +43,7 @@ fn main() {
     };
 
     let server = Server::http(format!("0.0.0.0:{}", port)).unwrap();
-    println!("started server");
+    println!("started server on port {}", port);
 
     let mut path = dirs::home_dir().unwrap();
     path.push("mmm.csv");
@@ -69,11 +70,28 @@ fn main() {
             "/state" => request.respond(web::state()).unwrap(),
             "/clear" => request.respond(web::clear(&path)).unwrap(),
             "/weather" => request.respond(web::weather()).unwrap(),
-            "/graph.svg" => request.respond(web::graph(&path)).unwrap(),
             "/data.csv" => request.respond(web::data(&path)).unwrap(),
             "/favicon.ico" => request.respond(web::favicon()).unwrap(),
             "/Vulf_Sans-Regular.woff2" => request.respond(web::font()).unwrap(),
-            &_ => request.respond(web::index()).unwrap(),
+            &_ => {
+                // my god this code is terrible I should have learned regex instead.
+                let split = request.url().split("_");
+                if split.clone().count() == 3{
+                    let length: usize = split.clone().nth(1).unwrap().parse().unwrap();
+                    let res = split.last().unwrap().replace(".svg", "");
+                    let mut res_split = res.split("x");
+
+                    let width = res_split.nth(0).unwrap();
+                    let width = width.parse::<usize>().unwrap();
+
+                    let height = res_split.last().unwrap();
+                    let height = height.parse::<usize>().unwrap();
+                    request.respond(web::get_graph_response(&path, length, width, height)).unwrap();
+
+                } else {
+                    request.respond(web::index()).unwrap();
+                }
+            },
         }
     }
 }
@@ -86,10 +104,11 @@ fn update_database(path: &PathBuf) {
         };
 
         let now = Utc::now().to_rfc3339();
-        let current_weather = Weather::now();
+        // let current_weather = Weather::now();
         let output = format!(
-            "\n{},{} °C,{}",
-            now, current_weather.temperature, current_state
+            "\n{},weather_would_go_here_but_its_not_working,{}",
+            now,
+            current_state
         );
 
         fstream::write_text(path, output, false).unwrap();

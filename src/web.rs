@@ -2,11 +2,10 @@ use std::fs;
 use std::io::Cursor;
 use std::path::PathBuf;
 
-use chrono::prelude::*;
-use charts::{Chart, ScaleLinear, AreaSeriesView};
 use tiny_http::{Header, Response};
 
 use crate::electronics;
+use crate::graph::gen_graph;
 use crate::weather::Weather;
 use crate::STATE;
 
@@ -20,11 +19,10 @@ pub fn index() -> Response<Cursor<Vec<u8>>> {
 }
 
 pub fn weather() -> Response<Cursor<Vec<u8>>> {
-    let weather = Weather::now();
+    // let weather = Weather::now();\
 
     Response::from_string(&format!(
-        "Temperature: {} °C, {}.",
-        weather.temperature, weather.description
+        "weather would go here"
     ))
 }
 
@@ -177,131 +175,14 @@ pub fn toggle(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
     }
 }
 
-
-pub fn graph(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
-    let plaintext = fstream::read_text(path).unwrap();
-    let mut main_data: Vec<(f32, bool)> = Vec::new();
-
-    let width = 500;
-    let height = 500;
-    let (top, right, bottom, left) = (90, 40, 50, 60);
-
-    let min_time = -10.0;
-    let max_time = 0.0;
-    let off_num: f32 = 0.25;
-    let on_num: f32 = 0.75;
-
-    println!("\n");
-    for line in plaintext.lines().skip(1) {
-        let mut line = line.split(",");
-
-        let date = DateTime::parse_from_rfc3339(line.nth(0).unwrap()).unwrap().time();
-        let state = match line.last().unwrap() {
-            "On" => true,
-            "Off" => false,
-            &_ => false,
-        };
-        let now = Utc::now().time();
-
-        if date.signed_duration_since(now).num_minutes() > min_time as i64 {
-            let date = date.signed_duration_since(now).num_seconds() as f32 / 60.0;
-            main_data.push((date, state));
-            println!("adding {}, {}", date, state);
-        } else {
-            main_data.push((min_time, state))
-        }
-    }
-    println!("\n");
-
-    let mut line_data: Vec<(f32, f32)> = Vec::new();
-
-    if main_data.len() != 0 {
-        if main_data.last().unwrap().0 != max_time {
-            match main_data.first().unwrap().1 {
-                true => line_data.push((min_time, on_num)),
-                false => line_data.push((min_time, off_num)),
-            }
-        }
-    } else {
-        unsafe {
-            match STATE {
-                true => {
-                    line_data.push((min_time, on_num));
-                    line_data.push((max_time, on_num));
-                }
-                false => {
-                    line_data.push((min_time, off_num));
-                    line_data.push((max_time, off_num));
-                }
-            }
-        }
-    }
-
-    'main_loop: for (num, (date, state)) in main_data.iter().enumerate() {
-        let date = *date;
-        let state = *state;
-
-        if num != main_data.len() - 1 && num != 0 && main_data.get(num - 1).unwrap().1 == state {
-            continue 'main_loop;
-        }
-
-        let coord: (f32, f32) = match state {
-            true => (date, on_num),
-            false => (date, off_num),
-        };
-        
-        if num != 0 && main_data.get(num - 1).unwrap().1 != state {
-            let other_coord: (f32, f32) = match state {
-                true => (date, off_num),
-                false => (date, on_num),
-            };
-    
-            line_data.push(other_coord);
-        }
-
-        line_data.push(coord);
-
-    }
-
-    if main_data.len() != 0 {
-        if main_data.last().unwrap().0 != max_time {
-            match main_data.last().unwrap().1 {
-                true => line_data.push((max_time, on_num)),
-                false => line_data.push((max_time, off_num)),
-            }
-        }
-    }
-
-    let x = ScaleLinear::new()
-        .set_domain(vec![min_time, max_time])
-        .set_range(vec![0, width - left - right]);
-
-    let y = ScaleLinear::new()
-        .set_domain(vec![0.0, 1.0])
-        .set_range(vec![height - top - bottom, 0]);
-
-    let line_view = AreaSeriesView::new()
-        .set_x_scale(&x)
-        .set_y_scale(&y)
-        // .set_marker_type(MarkerType::None)
-        .set_label_visibility(false)
-        // .set_colors(colors)
-        .load_data(&line_data).unwrap();
-
-    let doc = Chart::new()
-        .set_width(width)
-        .set_height(height)
-        .set_margins(top, right, bottom, left)
-        .add_title(String::from("Past 10 Minutes"))
-        .add_view(&line_view)
-        .add_axis_bottom(&x)
-        .add_axis_left(&y)
-        .add_left_axis_label("On/Off")
-        .add_bottom_axis_label("Past 10 Minutes")
-        .to_svg_document()
-        .unwrap();
-
+pub fn get_graph_response(path: &PathBuf, length: usize, width: usize, height: usize) -> Response<Cursor<Vec<u8>>> {
+    let doc = gen_graph(path, length, width, height);
+    // Return the SVG graph with correct HTML headers. It also has the no-cache so I can implement live-reload on my site in javascript and have it update.
     return Response::from_string(doc)
         .with_header("Content-type: image/svg+xml".parse::<Header>().unwrap())
-        .with_header("Cache-Control: no-cache, must-revalidate, no-store".parse::<Header>().unwrap());
+        .with_header(
+            "Cache-Control: no-cache, must-revalidate, no-store"
+                .parse::<Header>()
+                .unwrap(),
+        );
 }

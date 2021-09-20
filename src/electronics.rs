@@ -2,7 +2,7 @@
 use std::path::PathBuf;
 
 use crate::update_database;
-use crate::{STATE, PIN};
+use crate::{PIN, STATE};
 
 #[cfg(target_arch = "arm")]
 use rppal::gpio::Gpio;

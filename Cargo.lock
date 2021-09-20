@@ -248,7 +248,6 @@ dependencies = [
  "clap",
  "dirs",
  "fstream",
- "lazy_static",
  "rppal",
  "serde_json",
  "tiny_http",
