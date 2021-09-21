@@ -1,22 +1,20 @@
-const toggleButton = document.getElementById("toggle");
-const clearButton = document.getElementById("clear");
-const downloadButton = document.getElementById("download");
-const refreshButton = document.getElementById("refresh");
-const stateText = document.getElementById("state");
-const weatherText = document.getElementById("weather");
-const csvDiv = document.getElementById("csvData");
-const graphImg = document.getElementById("graph");
-
 var response = await fetch("/state");
 var json = await response.json();
 var state = json.state;
-stateText.innerHTML = "State: " + state;
+document.getElementById("state").innerHTML = "State: " + state;
 
 updateCsv();
 setWeather();
-updateGraph();
 
-downloadButton.onclick = async function() {
+(function loop() {
+	setTimeout(function () {
+        document.getElementById("graph").src = "/graph_1_" + document.getElementById("mainDiv").offsetWidth + "x500.svg";
+        console.log("updating graph...");
+        loop()
+	}, 1500);
+}());
+
+document.getElementById("download").onclick = async function() {
     const anchor = document.createElement("a");
     anchor.href = "/data.csv";
     anchor.download = "sprinkler.csv";
@@ -26,13 +24,13 @@ downloadButton.onclick = async function() {
     document.body.removeChild(anchor);
 };
 
-clearButton.onclick = async function() {
+document.getElementById("clear").onclick = async function() {
     var response = await fetch("/clear");
 
     updateCsv();
 };
 
-toggleButton.onclick = async function() {
+document.getElementById("toggle").onclick = async function() {
     var response = await fetch("/toggle");
     var json = await response.json();
 
@@ -41,35 +39,27 @@ toggleButton.onclick = async function() {
     };
 
     var state = json.state;
-    stateText.innerHTML = "State: " + state;
+    document.getElementById("state").innerHTML = "State: " + state;
 
     updateCsv();
-    updateGraph();
 };
 
-refreshButton.onclick = async function() {
+document.getElementById("refresh").onclick = async function() {
     updateCsv();
     setWeather();
-    updateGraph();
-}
-
-async function updateGraph() {
-    setTimeout(function () {
-        graphImg.src = "/graph.svg"
-    }, 1000);
 }
 
 async function updateCsv() {
     var response = await fetch("/data.csv");
     var csvText = await response.text();
     var csvHTML = makeTableHTML(CSVToArray(csvText));
-    csvDiv.innerHTML = csvHTML;
+    document.getElementById("csvData").innerHTML = csvHTML;
 }
 
 async function setWeather() {
     var response = await fetch("/weather");
     var weather = await response.text();
-    weatherText.innerHTML = weather;
+    document.getElementById("weather").innerHTML = weather;
 }
 
 function CSVToArray(strData, strDelimiter) {
@@ -99,6 +89,16 @@ function CSVToArray(strData, strDelimiter) {
     }
 
     return arrData;
+}
+
+function getWidth() {
+        return Math.max(
+        document.body.scrollWidth,
+        document.documentElement.scrollWidth,
+        document.body.offsetWidth,
+        document.documentElement.offsetWidth,
+        document.documentElement.clientWidth
+    );
 }
 
 function makeTableHTML(myArray) {

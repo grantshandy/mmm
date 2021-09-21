@@ -7,12 +7,20 @@ pub struct Weather {
 
 impl Weather {
     pub fn now() -> Self {
-        let resp = ureq::get(&format!(
+        let resp = match ureq::get(&format!(
             "http://api.weatherapi.com/v1/current.json?key={}&q=millcreek&aqi=no",
             include_str!("../weather_key")
         ))
         .call()
-        .unwrap()
+        {
+            Ok(data) => data,
+            Err(error) => {
+                return Self {
+                    temperature: 0.0,
+                    description: format!("Error getting weather: {}", error),
+                }
+            }
+        }
         .into_string()
         .unwrap();
 

@@ -15,7 +15,7 @@ ureq = "2"
 serde_json = "1"
 dirs = "3"
 clap = "2"
-charts = { path = "../rustplotlib" }
+charts = { git = "https://github.com/grantshandy/rustplotlib" }
 
 [target.'cfg(target_arch = "arm")'.dependencies]
 rppal = "0.12.0"

@@ -76,6 +76,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "charts"
 version = "0.3.0"
+source = "git+https://github.com/grantshandy/rustplotlib#14442daef896ef8c416bf72045235e9d86aaef6c"
 dependencies = [
  "format_num",
  "svg",

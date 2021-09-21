@@ -2,6 +2,7 @@ use std::fs;
 use std::io::Cursor;
 use std::path::PathBuf;
 
+use chrono::prelude::*;
 use tiny_http::{Header, Response};
 
 use crate::electronics;
@@ -19,11 +20,17 @@ pub fn index() -> Response<Cursor<Vec<u8>>> {
 }
 
 pub fn weather() -> Response<Cursor<Vec<u8>>> {
-    // let weather = Weather::now();\
+    let weather = Weather::now();
 
     Response::from_string(&format!(
-        "weather would go here"
+        "{}, {} °C",
+        weather.description, weather.temperature
     ))
+    .with_header(
+        "Content-type: text/plaintext; charset=utf8"
+            .parse::<tiny_http::Header>()
+            .unwrap(),
+    )
 }
 
 pub fn favicon() -> Response<Cursor<Vec<u8>>> {
@@ -52,9 +59,9 @@ pub fn data(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
                 .unwrap(),
         );
     } else {
-        fstream::write_text(path, "time,temperature,status", false);
+        fstream::write_text(path, "Time,Temperature (°C),Status", false);
 
-        return Response::from_string("time,temperature,status").with_header(
+        return Response::from_string("Time,Temperature (°C),Status").with_header(
             "Content-type: text/csv; charset=utf8"
                 .parse::<tiny_http::Header>()
                 .unwrap(),
@@ -78,20 +85,23 @@ pub fn state() -> Response<Cursor<Vec<u8>>> {
 }
 
 pub fn clear(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
-    // let current_time = Utc::now();
+    let current_time = Utc::now();
 
-    // let mut archives_dir = dirs::home_dir().unwrap();
-    // archives_dir.push("mmm-archives");
+    let mut archive_path = dirs::home_dir().unwrap();
+    archive_path.push("mmm-archives");
 
-    // if !archives_dir.exists() {
-    //     fs::create_dir(&archives_dir).unwrap();
-    // }
+    if !archive_path.exists() {
+        fs::create_dir(&archive_path).unwrap();
+    }
 
-    // let mut archive_path = archives_dir;
-    // archive_path.push(&format!("mmm-{}.csv", current_time));
+    archive_path.push(&format!("mmm-{}.csv", current_time.format("%v-%T")));
 
-    // fstream::write_text(path, "time,temperature,status", false);
-    // fstream::write_text(archive_path, csv_str, false).expect("couldn't write the text");
+    fstream::write_text(
+        archive_path,
+        fstream::read_text(path).expect("couldn't read text from the original dir"),
+        false,
+    )
+    .expect("couldn't write the text");
 
     fs::remove_file(path).unwrap();
 
@@ -175,7 +185,12 @@ pub fn toggle(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
     }
 }
 
-pub fn get_graph_response(path: &PathBuf, length: usize, width: usize, height: usize) -> Response<Cursor<Vec<u8>>> {
+pub fn get_graph_response(
+    path: &PathBuf,
+    length: usize,
+    width: usize,
+    height: usize,
+) -> Response<Cursor<Vec<u8>>> {
     let doc = gen_graph(path, length, width, height);
     // Return the SVG graph with correct HTML headers. It also has the no-cache so I can implement live-reload on my site in javascript and have it update.
     return Response::from_string(doc)
