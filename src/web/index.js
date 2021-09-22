@@ -113,7 +113,7 @@ function makeTableHTML(myArray) {
         if (myArray[i][3] == "On") {
             let date = new Date(myArray[i][0]);
 
-            result += '<tr style="background-color: green">';
+            result += '<tr style="background-color: #072ff7">';
             result += "<td>" + date + "</td>";
             result += "<td>" + myArray[i][1] + "</td>";
             result += "<td>" + myArray[i][2] + "</td>";
@@ -122,7 +122,7 @@ function makeTableHTML(myArray) {
         } else if (myArray[i][3] == "Off") {
             let date = new Date(myArray[i][0]);
 
-            result += '<tr style="background-color: #FE4365">';
+            result += '<tr style="background-color: #e02702">';
             result += "<td>" + date + "</td>";
             result += "<td>" + myArray[i][1] + "</td>";
             result += "<td>" + myArray[i][2] + "</td>";

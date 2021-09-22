@@ -1,5 +1,5 @@
 use charts::{Chart, Color, LineSeriesView, ScaleLinear};
-use chrono::{Duration, prelude::*};
+use chrono::prelude::*;
 use std::path::PathBuf;
 
 pub fn gen_graph(path: &PathBuf, length: usize, width: usize, height: usize) -> String {
