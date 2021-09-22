@@ -40,12 +40,20 @@ html, body, input, textarea, select, button {
     scroll-behavior: smooth;
 }
 
+#minuteInput {
+    width: 40px;
+}
+
 .divScroll {
     overflow-y: scroll;
-    max-height: 200px;
+    height: 170px;
     width: 800px;
     border: 5px;
     border-color: #202324;
+}
+
+* {
+    font-family: "Vulf Sans";
 }
 
 @font-face {

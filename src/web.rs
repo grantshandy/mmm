@@ -5,13 +5,13 @@ use std::path::PathBuf;
 use chrono::prelude::*;
 use tiny_http::{Header, Response};
 
-use crate::electronics;
+use crate::{electronics, update_database};
 use crate::graph::gen_graph;
 use crate::weather::Weather;
-use crate::STATE;
+use crate::{STATE, STORE_BACKLOGS};
 
 pub fn index() -> Response<Cursor<Vec<u8>>> {
-    Response::from_string(&format!("<html>\n<head>\n<title>Sprinkler Control</title>\n<link rel=\"icon\" href=\"favicon.ico\"/>\n<style type=\"text/css\">\n{}\n</style>\n</head>\n<body>\n{}\n<script type=\"module\">\n{}\n</script>\n</body>\n</html>", include_str!("web/style.css"), include_str!("web/index.html"), include_str!("web/index.js")))
+    Response::from_string(format!("<html>\n<head>\n<title>Sprinkler Control</title>\n<link rel=\"icon\" href=\"favicon.ico\"/>\n<style type=\"text/css\">\n{}\n</style>\n</head>\n<body>\n{}\n<script type=\"module\">\n{}\n</script>\n</body>\n</html>", include_str!("web/style.css"), include_str!("web/index.html"), include_str!("web/index.js")))
     .with_header(
         "Content-type: text/html; charset=\"UTF-8\""
             .parse::<tiny_http::Header>()
@@ -42,11 +42,7 @@ pub fn favicon() -> Response<Cursor<Vec<u8>>> {
 }
 
 pub fn font() -> Response<Cursor<Vec<u8>>> {
-    Response::from_data(include_bytes!("web/Vulf_Sans-Regular.woff2").to_vec()).with_header(
-        "Content-type: image/ico"
-            .parse::<tiny_http::Header>()
-            .unwrap(),
-    )
+    Response::from_data(include_bytes!("web/Vulf_Sans-Regular.woff2").to_vec())
 }
 
 pub fn data(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
@@ -59,9 +55,9 @@ pub fn data(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
                 .unwrap(),
         );
     } else {
-        fstream::write_text(path, "Time,Temperature (°C),Status", false);
+        fstream::write_text(path, "Time,Temperature (°C),Humidity,Status", false);
 
-        return Response::from_string("Time,Temperature (°C),Status").with_header(
+        return Response::from_string("Time,Temperature (°C),Humidity,Status").with_header(
             "Content-type: text/csv; charset=utf8"
                 .parse::<tiny_http::Header>()
                 .unwrap(),
@@ -85,25 +81,31 @@ pub fn state() -> Response<Cursor<Vec<u8>>> {
 }
 
 pub fn clear(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
-    let current_time = Utc::now();
+    unsafe {
+        if STORE_BACKLOGS {
+            let current_time = Utc::now();
 
-    let mut archive_path = dirs::home_dir().unwrap();
-    archive_path.push("mmm-archives");
+            let mut archive_path = dirs::home_dir().unwrap();
+            archive_path.push("mmm-archives");
 
-    if !archive_path.exists() {
-        fs::create_dir(&archive_path).unwrap();
+            if !archive_path.exists() {
+                fs::create_dir(&archive_path).unwrap();
+            }
+
+            archive_path.push(&format!("mmm-{}.csv", current_time.format("%v-%T")));
+
+            fstream::write_text(
+                archive_path,
+                fstream::read_text(path).expect("couldn't read text from the original dir"),
+                false,
+            )
+            .expect("couldn't write the text");
+        }
     }
 
-    archive_path.push(&format!("mmm-{}.csv", current_time.format("%v-%T")));
-
-    fstream::write_text(
-        archive_path,
-        fstream::read_text(path).expect("couldn't read text from the original dir"),
-        false,
-    )
-    .expect("couldn't write the text");
-
     fs::remove_file(path).unwrap();
+    fstream::write_text(path, "Time,Temperature (°C),Humidity,Status", false).unwrap();
+    update_database(path);
 
     return Response::from_string(format!("{{\"status\":\"0\"}}")).with_header(
         "Content-type: text/json"
@@ -122,30 +124,8 @@ pub fn toggle(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
                 let res = electronics::fake_turn_pins_off(path);
 
                 match res {
-                    Ok(current_state) => {
-                        let current_state = match current_state {
-                            true => "On",
-                            false => "Off",
-                        };
-
-                        return Response::from_string(&format!(
-                            "{{\"state\":\"{}\"}}",
-                            current_state
-                        ))
-                        .with_header("Content-type: text/json".parse::<Header>().unwrap());
-                    }
-                    Err((current_state, error)) => {
-                        let current_state = match current_state {
-                            true => "On",
-                            false => "Off",
-                        };
-
-                        return Response::from_string(&format!(
-                            "{{\"state\":\"{}\",\"error\":\"{}\"}}",
-                            current_state, error
-                        ))
-                        .with_header("Content-type: text/json".parse::<Header>().unwrap());
-                    }
+                    Ok(current_state) => return state_with_headers(current_state, None),
+                    Err((current_state, error)) => return state_with_headers(current_state, Some(error)),
                 };
             }
             false => {
@@ -155,32 +135,34 @@ pub fn toggle(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
                 let res = electronics::fake_turn_pins_on(path);
 
                 match res {
-                    Ok(current_state) => {
-                        let current_state = match current_state {
-                            true => "On",
-                            false => "Off",
-                        };
-
-                        return Response::from_string(&format!(
-                            "{{\"state\":\"{}\"}}",
-                            current_state
-                        ))
-                        .with_header("Content-type: text/json".parse::<Header>().unwrap());
-                    }
-                    Err((current_state, error)) => {
-                        let current_state = match current_state {
-                            true => "On",
-                            false => "Off",
-                        };
-
-                        return Response::from_string(&format!(
-                            "{{\"state\":\"{}\",\"error\":\"{}\"}}",
-                            current_state, error
-                        ))
-                        .with_header("Content-type: text/json".parse::<Header>().unwrap());
-                    }
+                    Ok(current_state) => return state_with_headers(current_state, None),
+                    Err((current_state, error)) => return state_with_headers(current_state, Some(error)),
                 };
             }
+        }
+    }
+}
+
+fn state_with_headers(current_state: bool, error: Option<String>) -> Response<Cursor<Vec<u8>>> {
+    let current_state = match current_state {
+        true => "On",
+        false => "Off",
+    };
+
+    match error {
+        Some(error) => {
+            Response::from_string(&format!(
+                "{{\"state\":\"{}\",\"error\":\"{}\"}}",
+                current_state, error
+            ))
+            .with_header("Content-type: text/json".parse::<Header>().unwrap())
+        }
+        None => {
+            Response::from_string(&format!(
+                "{{\"state\":\"{}\"}}",
+                current_state
+            ))
+            .with_header("Content-type: text/json".parse::<Header>().unwrap())
         }
     }
 }

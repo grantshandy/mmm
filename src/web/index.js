@@ -6,12 +6,17 @@ document.getElementById("state").innerHTML = "State: " + state;
 updateCsv();
 setWeather();
 
+document.getElementById("minuteInput").value = 5;
+
 (function loop() {
-	setTimeout(function () {
-        document.getElementById("graph").src = "/graph_1_" + document.getElementById("mainDiv").offsetWidth + "x500.svg";
+	setTimeout(async function () {
+        var response = await fetch("/graph_" +document.getElementById("minuteInput").value+"_"+document.getElementById("mainDiv").offsetWidth+"x500.svg");
+        var svgText = await response.text();
+
+        document.getElementById("graph").innerHTML = svgText;
         console.log("updating graph...");
         loop()
-	}, 1500);
+	}, 500);
 }());
 
 document.getElementById("download").onclick = async function() {
@@ -105,27 +110,30 @@ function makeTableHTML(myArray) {
     var result = "<table border=1 style=\"width: 784px\">";
 
     for (var i = 0; i < myArray.length; i++) {
-        if (myArray[i][2] == "On") {
+        if (myArray[i][3] == "On") {
             let date = new Date(myArray[i][0]);
 
             result += '<tr style="background-color: green">';
             result += "<td>" + date + "</td>";
             result += "<td>" + myArray[i][1] + "</td>";
             result += "<td>" + myArray[i][2] + "</td>";
+            result += "<td>" + myArray[i][3] + "</td>";
             result += "</tr>";
-        } else if (myArray[i][2] == "Off") {
+        } else if (myArray[i][3] == "Off") {
             let date = new Date(myArray[i][0]);
 
             result += '<tr style="background-color: #FE4365">';
             result += "<td>" + date + "</td>";
             result += "<td>" + myArray[i][1] + "</td>";
             result += "<td>" + myArray[i][2] + "</td>";
+            result += "<td>" + myArray[i][3] + "</td>";
             result += "</tr>";
         } else {
             result += "<tr>";
             result += "<td>" + myArray[i][0] + "</td>";
             result += "<td>" + myArray[i][1] + "</td>";
             result += "<td>" + myArray[i][2] + "</td>";
+            result += "<td>" + myArray[i][3] + "</td>";
             result += "</tr>";
         }
     }

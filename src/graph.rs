@@ -1,6 +1,5 @@
-use crate::STATE;
 use charts::{Chart, Color, LineSeriesView, ScaleLinear};
-use chrono::prelude::*;
+use chrono::{Duration, prelude::*};
 use std::path::PathBuf;
 
 pub fn gen_graph(path: &PathBuf, length: usize, width: usize, height: usize) -> String {
@@ -16,10 +15,10 @@ pub fn gen_graph(path: &PathBuf, length: usize, width: usize, height: usize) -> 
     let (top, right, bottom, left) = (40, 40, 50, 40);
     let min_time = -(length as f32);
     let max_time = 0.0;
-    let max_value: f32 = 50.0;
-    let min_value: f32 = -30.0;
-    let off_num: f32 = 0.0;
-    let on_num: f32 = 45.0;
+    let max_value: f32 = 70.0;
+    let min_value: f32 = -70.0;
+    let on_num: f32 = 50.0;
+    let off_num: f32 = -50.0;
 
     // Iterate through the lines of the text file (skipping the first row that tells us what each one is).
     for line in plaintext.lines().skip(1) {
@@ -55,32 +54,6 @@ pub fn gen_graph(path: &PathBuf, length: usize, width: usize, height: usize) -> 
 
     // Create a list of points for the graph.
     let mut line_data: Vec<(f32, f32)> = Vec::new();
-
-    // // If the main data contains things...
-    if main_data.len() != 0 {
-        // And the last one is not out of the range...
-        if main_data.first().unwrap().0 != max_time {
-            // Get the first one and push it to the minimum time to create a straight line at the beginning.
-            match main_data.first().unwrap().1 {
-                true => line_data.push((min_time, on_num)),
-                false => line_data.push((min_time, off_num)),
-            }
-        }
-    } else {
-        // Otherwise push the current state in. This doesn't look amazing for a list without anything but it avoids a buggy looking graph.
-        unsafe {
-            match STATE {
-                true => {
-                    line_data.push((min_time, on_num));
-                    line_data.push((max_time, on_num));
-                }
-                false => {
-                    line_data.push((min_time, off_num));
-                    line_data.push((max_time, off_num));
-                }
-            }
-        }
-    }
 
     // Iterate through the main dataset and enumerate to get the number in the list that we're currently in.
     'main_loop: for (num, (date, state)) in main_data.iter().enumerate() {
@@ -154,17 +127,34 @@ pub fn gen_graph(path: &PathBuf, length: usize, width: usize, height: usize) -> 
         .load_data(&temperature_data)
         .unwrap();
 
+    let humidity_data = parse_humidity_data(min_time, &plaintext);
+
+    let humidity_view = LineSeriesView::new()
+        .set_x_scale(&x)
+        .set_y_scale(&y)
+        .set_label_visibility(false)
+        .set_colors(Color::from_vec_of_hex_strings(vec!["#e02702"]))
+        .load_data(&humidity_data)
+        .unwrap();
+
+    let title = match length {
+        1 => "Minute".to_string(),
+        _ => format!("{} Minutes", length),
+    };
+
     let doc = Chart::new()
+        .font_color("#d8d4cf")
         .set_width(width)
         .set_height(height)
         .set_margins(top, right, bottom, left)
-        .add_title(format!("Past {} Minutes", length))
+        .add_title(format!("Status Over The {}", &title))
         .add_view(&on_off_view)
         .add_view(&temperature_view)
+        .add_view(&humidity_view)
         .add_axis_bottom(&x)
         .add_axis_left(&y)
         .add_left_axis_label("On/Off")
-        .add_bottom_axis_label(format!("Past {} Minutes", length))
+        .add_bottom_axis_label(format!("Past {}", title))
         .to_svg_document() // I created this method in my own fork of rustplotlib.
         .unwrap();
 
@@ -197,6 +187,49 @@ fn parse_temperature_data(min_time: f32, text: &str) -> Vec<(f32, f32)> {
         } else {
             // Else push it to the end of the list. This will create duplicate points but it will stop me from doing more work.
             data.push((min_time, temperature));
+        }
+    }
+
+    // If the list has more than 0 things in it...
+    if data.len() != 0 {
+        // if the last one is not at the end...
+        if data.last().unwrap().0 != 0.0 {
+            // Get the last one and push it to it's state at the very end of the graph.
+            let last_temp = data.last().unwrap().1;
+            data.push((0.0, last_temp));
+        }
+    }
+
+    return data;
+}
+
+
+fn parse_humidity_data(min_time: f32, text: &str) -> Vec<(f32, f32)> {
+    let mut data: Vec<(f32, f32)> = Vec::new();
+
+    for line in text.lines().skip(1) {
+        // Split the line at the delimeter (,).
+        let mut line = line.split(",");
+
+        // Create a DateTime object from the first object in the list.
+        let date = DateTime::parse_from_rfc3339(line.nth(0).unwrap())
+            .unwrap()
+            .time();
+
+        let humidity: u8 = line.nth(1).unwrap().parse().unwrap();
+
+        // Create a NaiveTime object from now to compare the values in the list.
+        let now = Utc::now().time();
+
+        // If the time is not more than 10 minutes ago...
+        if date.signed_duration_since(now).num_minutes() > min_time as i64 {
+            // Get the number of minutes ago it was...
+            let date = date.signed_duration_since(now).num_seconds() as f32 / 60.0;
+            // Push it to the list.
+            data.push((date, humidity as f32));
+        } else {
+            // Else push it to the end of the list. This will create duplicate points but it will stop me from doing more work.
+            data.push((min_time, humidity as f32));
         }
     }
 

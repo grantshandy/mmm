@@ -3,6 +3,7 @@ use serde_json::Value;
 pub struct Weather {
     pub temperature: f64,
     pub description: String,
+    pub humidity: f64,
 }
 
 impl Weather {
@@ -18,6 +19,7 @@ impl Weather {
                 return Self {
                     temperature: 0.0,
                     description: format!("Error getting weather: {}", error),
+                    humidity: 0.0,
                 }
             }
         }
@@ -39,9 +41,18 @@ impl Weather {
             _ => panic!("no temp!"),
         };
 
+        let humidity = match &resp["current"]["humidity"] {
+            Value::Number(desc) => match desc.as_f64() {
+                Some(data) => data,
+                None => panic!("not f64!!"),
+            },
+            _ => panic!("no humidity!"),
+        };
+
         return Self {
             temperature,
             description,
+            humidity,
         };
     }
 }
