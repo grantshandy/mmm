@@ -83,23 +83,25 @@ pub fn state() -> Response<Cursor<Vec<u8>>> {
 pub fn clear(path: &PathBuf) -> Response<Cursor<Vec<u8>>> {
     unsafe {
         if STORE_BACKLOGS {
-            let current_time = Utc::now();
-
-            let mut archive_path = dirs::home_dir().unwrap();
+            let mut archive_path = dirs::download_dir().unwrap();
             archive_path.push("mmm-archives");
 
             if !archive_path.exists() {
                 fs::create_dir(&archive_path).unwrap();
             }
-
+            
+            let current_time = Utc::now();
             archive_path.push(&format!("mmm-{}.csv", current_time.format("%v-%T")));
+
+            println!("clearing... copying from {} to {}", path.to_string_lossy(), archive_path.to_string_lossy());
+
+            let current_csv = fstream::read_text(path).unwrap();
 
             fstream::write_text(
                 archive_path,
-                fstream::read_text(path).expect("couldn't read text from the original dir"),
+                current_csv,
                 false,
-            )
-            .expect("couldn't write the text");
+            ).unwrap();
         }
     }
 

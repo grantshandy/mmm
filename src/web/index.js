@@ -1,16 +1,15 @@
-var response = await fetch("/state");
-var json = await response.json();
-var state = json.state;
-document.getElementById("state").innerHTML = "State: " + state;
-
-updateCsv();
-setWeather();
+updatePage();
 
 document.getElementById("minuteInput").value = 5;
 
 (function loop() {
 	setTimeout(async function () {
-        var response = await fetch("/graph_" +document.getElementById("minuteInput").value+"_"+document.getElementById("mainDiv").offsetWidth+"x500.svg");
+        var width = document.getElementById("mainDiv").offsetWidth;
+
+        // For some reason I came back and the graph height was broken. I need to come back around and fix this...
+        var height =  500;
+
+        var response = await fetch("/graph_" +document.getElementById("minuteInput").value+"_"+width+"x"+height+".svg");
         var svgText = await response.text();
 
         document.getElementById("graph").innerHTML = svgText;
@@ -31,8 +30,7 @@ document.getElementById("download").onclick = async function() {
 
 document.getElementById("clear").onclick = async function() {
     var response = await fetch("/clear");
-
-    updateCsv();
+    updatePage();
 };
 
 document.getElementById("toggle").onclick = async function() {
@@ -43,28 +41,26 @@ document.getElementById("toggle").onclick = async function() {
         alert("Couldn't toggle the pin! Error: " + json.error);
     };
 
-    var state = json.state;
-    document.getElementById("state").innerHTML = "State: " + state;
-
-    updateCsv();
+    updatePage();
 };
 
 document.getElementById("refresh").onclick = async function() {
-    updateCsv();
-    setWeather();
+    updatePage();
 }
 
-async function updateCsv() {
+async function updatePage() {
     var response = await fetch("/data.csv");
     var csvText = await response.text();
     var csvHTML = makeTableHTML(CSVToArray(csvText));
     document.getElementById("csvData").innerHTML = csvHTML;
-}
 
-async function setWeather() {
-    var response = await fetch("/weather");
-    var weather = await response.text();
-    document.getElementById("weather").innerHTML = weather;
+    var weatherResponse = await fetch("/weather");
+    var weatherText = await weatherResponse.text();
+
+    var stateResponse = await fetch("/state");
+    var stateText = await stateResponse.json();
+
+    document.getElementById("state").innerHTML = "State: " + stateText.state + ", " + weatherText;
 }
 
 function CSVToArray(strData, strDelimiter) {
@@ -96,18 +92,8 @@ function CSVToArray(strData, strDelimiter) {
     return arrData;
 }
 
-function getWidth() {
-        return Math.max(
-        document.body.scrollWidth,
-        document.documentElement.scrollWidth,
-        document.body.offsetWidth,
-        document.documentElement.offsetWidth,
-        document.documentElement.clientWidth
-    );
-}
-
 function makeTableHTML(myArray) {
-    var result = "<table border=1 style=\"width: 784px\">";
+    var result = "<table border=1>";
 
     for (var i = 0; i < myArray.length; i++) {
         if (myArray[i][3] == "On") {

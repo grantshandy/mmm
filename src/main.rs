@@ -33,7 +33,7 @@ fn main() {
     };
 
     unsafe {
-        match app.is_present("testtemp") {
+        match app.is_present("test-temp") {
             true => TEST_TEMP = true,
             false => TEST_TEMP = false,
         }
@@ -112,7 +112,7 @@ fn update_database(path: &PathBuf) {
 
         let now = Utc::now().to_rfc3339();
         let (temperature, humidity) = match TEST_TEMP {
-            true => (fastrand::u8(0..50) as f64, fastrand::u8(0..50) as f64),
+            true => (fastrand::i64(-70..70) as f64, fastrand::u8(0..50) as f64),
             false => {
                 let data = Weather::now();
                 (data.temperature, data.humidity)

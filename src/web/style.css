@@ -1,7 +1,10 @@
 body {
     background-color: #131516;
     color: #d8d4cf;
-    font-family: "Vulf Sans"
+    font-family: "Vulf Sans";
+    margin: 0 auto;
+    text-align: center;
+    width: 70vw;
 }
 
 body::selection {
@@ -28,12 +31,6 @@ html, body, input, textarea, select, button {
     background-color: #454a4d;
 }
 
-.doc {
-    margin: 0 auto;
-    text-align: center;
-    width: 70vw;
-}
-
 #dataTable {
     margin-left: auto;
     margin-right: auto;
@@ -44,12 +41,14 @@ html, body, input, textarea, select, button {
     width: 40px;
 }
 
-.divScroll {
+#csvData {
     overflow-y: scroll;
     height: 170px;
     width: 800px;
     border: 5px;
     border-color: #202324;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 * {
